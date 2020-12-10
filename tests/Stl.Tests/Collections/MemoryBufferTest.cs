@@ -1,5 +1,7 @@
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
+using System.Linq;
 using FluentAssertions;
 using Stl.Collections;
 using Xunit;
@@ -16,7 +18,7 @@ namespace Stl.Tests.Collections
             for (var i1 = 0; i1 < 100; i1++) {
                 var list = new List<byte>();
                 for (var l = 0; l < 100; l++) {
-                    list.Add((byte) (_rnd.Next() % 256));
+                    list.Add((byte)(_rnd.Next() % 256));
                     Test(list);
                 }
             }
@@ -56,6 +58,51 @@ namespace Stl.Tests.Collections
             finally {
                 buffer.Release();
             }
+        }
+
+        [Fact]
+        public void TestEnsureCapacity1()
+        {
+            var minCapacity = MemoryBuffer<int>.MinCapacity;
+            var b = MemoryBuffer<int>.Lease(true);
+            try {
+                for (var i = 0; i < 3; i++) {
+                    var capacity = b.Capacity;
+                    capacity.Should().BeGreaterOrEqualTo(minCapacity);
+                    var numbers = Enumerable.Range(0, capacity + 1).ToArray();
+                    b.AddRange(numbers);
+                    b.Capacity.Should().BeGreaterOrEqualTo(capacity << 1);
+                }
+
+                b.Clear();
+                b.Capacity.Should().BeGreaterOrEqualTo(minCapacity);
+
+                // Same test, but with .AddRange(IEnumerable<T>)
+                for (var i = 0; i < 3; i++) {
+                    var capacity = b.Capacity;
+                    capacity.Should().BeGreaterOrEqualTo(minCapacity);
+                    var numbers = Enumerable.Range(0, capacity + 1);
+                    b.AddRange(numbers);
+                    b.Capacity.Should().BeGreaterOrEqualTo(capacity << 1);
+                }
+            }
+            finally {
+                b.Release();
+            }
+        }
+
+        [Fact]
+        public void TestEnsureCapacity2()
+        {
+            Assert.Throws<ArgumentOutOfRangeException>(() => {
+                var b = MemoryBuffer<int>.Lease(true);
+                try {
+                    b.EnsureCapacity(int.MaxValue);
+                }
+                finally {
+                    b.Release();
+                }
+            });
         }
     }
 }
